@@ -38,14 +38,12 @@ such that au + bv = d
 -}
 computeCoeffs :: Int -> Int -> (Int, Int)
 computeCoeffs a b  
-  let  
-    q = a`div`b
-    r     = a`mod`b
+  | b == 0    = (1,0)
+  | otherwise = (v,(u-(q*v)))
+  where
+    q     = a `div` b
+    r     = a `mod` b
     (u,v) = computeCoeffs b r
-  in
-    | b == 0    = (1,0)
-    | otherwise = (v,(u-(q*v))
-
   
 
 
@@ -53,7 +51,7 @@ computeCoeffs a b
 inverse :: Int -> Int -> Int
 inverse a m = u`mod`m
   where 
-    (u,v) = computeCoeffs a m
+    (u) = fst (computeCoeffs a m)
 
   
 
@@ -62,7 +60,7 @@ modPow :: Int -> Int -> Int -> Int
 modPow a k m
   | k == 0    = 1`mod`m
   | even k    = (modPow a_new j m)`mod`m 
-  | otherwise = a*(modPow a_new (k-1) m)`mod`m
+  | otherwise = a*(modPow a (k-1) m)`mod`m
   where
     j = k`div`2
     a_new = (a*a)`mod`m
@@ -85,12 +83,12 @@ Generates keys pairs (public, private) = ((e, n), (d, n))
 given two "large" distinct primes, p and q
 -}
 genKeys :: Int -> Int -> ((Int, Int), (Int, Int))
-genKeys p q = ((e,N),(d,N))
+genKeys p q = ((e,n),(d,n))
   where 
-    N = p*q
+    n = p*q
     product = (p-1)*(q-1)
     e = smallestCoPrimeOf(product)
-    d = (1`mod`(product))`div`e
+    d = inverse e product
     
   
 
@@ -98,24 +96,24 @@ genKeys p q = ((e,N),(d,N))
 rsaEncrypt :: Int        -- ^ value to encrypt
            -> (Int, Int) -- ^ public key
            -> Int
-rsaEncrypt x (e,N) = modPow x e n
+rsaEncrypt x (e,n) = modPow x e n
 
 -- | This function performs RSA decryption
 rsaDecrypt :: Int        -- ^ value to decrypt
            -> (Int, Int) -- ^ public key
            -> Int
-rsaDecrypt c (d,N) = modPow c d N
+rsaDecrypt c (d,n) = modPow c d n
 
 -------------------------------------------------------------------------------
 -- PART 2 : symmetric encryption
 
 -- | Returns position of a letter in the alphabet
 toInt :: Char -> Int
-toInt a = ord(a)-97
+toInt x = ord x - ord 'a'
 
 -- | Returns the n^th letter
 toChar :: Int -> Char
-toChar a = chr(a+97)
+toChar x = chr(x + ord 'a')
 
 -- | "adds" two letters
 add :: Char -> Char -> Char
@@ -123,9 +121,7 @@ add a b = toChar((toInt a + toInt b)`mod`26)
   
 -- | "subtracts" two letters
 subtract :: Char -> Char -> Char
-subtract a b 
-  | toInt a > toInt b = toChar((toInt a) - (toInt b)`mod`26)
-  | otherwise         = toChar((toInt b) - (toInt a)`mod`26)
+subtract a b = toChar((toInt a - toInt b)`mod`26) 
 
 -- the next functions present
 -- 2 modes of operation for block ciphers : ECB and CBC
@@ -133,24 +129,31 @@ subtract a b
 
 -- | ecb (electronic codebook) encryption with block size of a letter
 ecbEncrypt :: Char -> [Char] -> [Char]
-ecbEncrypt k [] = []
-ecbEncrypt k c:cs = (add k c): ecbEncrypt k cs
+ecbEncrypt _ [] = []
+ecbEncrypt k (c:cs) = (add c k): ecbEncrypt k cs
 
 -- | ecb (electronic codebook) decryption with a block size of a letter
 ecbDecrypt :: Char -> [Char] -> [Char]
-ecbDecrypt k [] = []
-ecbDecrypt k c:cs = (subtract k c): ecbDecrypt k cs
+ecbDecrypt _ [] = []
+ecbDecrypt k (c:cs) = (subtract c k): ecbDecrypt k cs
+
 
 -- | cbc (cipherblock chaining) encryption with block size of a letter
 cbcEncrypt :: Char   -- ^ public key
            -> Char   -- ^ initialisation vector `iv`
            -> [Char] -- ^ message `m`
            -> [Char]
-cbcEncrypt = undefined
+cbcEncrypt k v []   = []
+cbcEncrypt k v (c:cs) = enc_c: cbcEncrypt k enc_c cs
+  where 
+    enc_c = add (add k v) c 
+  
 
 -- | cbc (cipherblock chaining) decryption with block size of a letter
 cbcDecrypt :: Char   -- ^ private key
            -> Char   -- ^ initialisation vector `iv`
            -> [Char] -- ^ message `m`
            -> [Char]
-cbcDecrypt = undefined
+cbcDecrypt k v []   = [] 
+cbcDecrypt k v (c:cs) = subtract (subtract c k) v : cbcDecrypt k c cs
+  
